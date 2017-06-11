@@ -11,29 +11,30 @@
 #include "proc.h"
 #include "x86.h"
 
-int 
-procfsisdir(struct inode *ip) {
+int procfsisdir(struct inode *ip) {
+	cprintf("isdir\n");
+	if (ip->type == T_DIR)
+		return 1;
+	else
+		return 0;
+}
+
+void procfsiread(struct inode* dp, struct inode *ip) {
+	cprintf("iread\n");
+}
+
+int procfsread(struct inode *ip, char *dst, int off, int n) {
+	cprintf("read\n");
   return 0;
 }
 
-void 
-procfsiread(struct inode* dp, struct inode *ip) {
-}
-
-int
-procfsread(struct inode *ip, char *dst, int off, int n) {
+int procfswrite(struct inode *ip, char *buf, int n) {
+	cprintf("procfswrite: %s\n",buf);
   return 0;
 }
 
-int
-procfswrite(struct inode *ip, char *buf, int n)
-{
-  return 0;
-}
-
-void
-procfsinit(void)
-{
+void procfsinit(void) {
+	cprintf("procfsinit\n");
   devsw[PROCFS].isdir = procfsisdir;
   devsw[PROCFS].iread = procfsiread;
   devsw[PROCFS].write = procfswrite;
