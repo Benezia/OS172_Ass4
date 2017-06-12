@@ -529,6 +529,7 @@ dirlookup(struct inode *dp, char *name, uint *poff)
         *poff = off;
       inum = de.inum;
       ip = iget(dp->dev, inum);
+      //if dp->type == T_DEV, iget should return a new recycled inode
       if (!(ip->flags & I_VALID) && dp->type == T_DEV && devsw[dp->major].iread) {
         devsw[dp->major].iread(dp, ip);
       }

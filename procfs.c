@@ -12,23 +12,32 @@
 #include "x86.h"
 
 int procfsisdir(struct inode *ip) {
-	cprintf("isdir\n");
-	if (ip->type == T_DIR)
-		return 1;
-	else
-		return 0;
+	cprintf("isdir: %d\n", ip->type);
+	return (ip->type == T_DEV && ip->major == PROCFS) || ip->type == T_DIR;
 }
 
 void procfsiread(struct inode* dp, struct inode *ip) {
+	//called from dirlookup.
+	//ip = A recycled inode returned in dirlookup (from iget)
+	ip->flags |= I_VALID; //prevents ilock (fs.c) from updating this inode 
+	//dp = the /proc T_DEV inode
+
+	//TODO: initialize ip correctly.
 	cprintf("iread\n");
 }
 
 int procfsread(struct inode *ip, char *dst, int off, int n) {
 	cprintf("read\n");
+	//Called by using read syscall on the proc T_DEV fd.
+	//Copies n bytes of ip's data to 'dst', starting at 'off'.
+	//if ip is a directory: A list of dirents will be copied (used by ls.c for example).
+	//if ip is a file: The output string will be copied
+	
   return 0;
 }
 
 int procfswrite(struct inode *ip, char *buf, int n) {
+	//Should stay unused IMO ("You must implement the procfs as a read-only file system")
 	cprintf("procfswrite: %s\n",buf);
   return 0;
 }
