@@ -161,6 +161,9 @@ struct {
   struct inode inode[NINODE];
 } icache;
 
+
+
+
 void
 iinit(void)
 {
@@ -169,7 +172,32 @@ iinit(void)
 
 static struct inode* iget(uint dev, uint inum);
 
-//PAGEBREAK!
+
+int getTotalRefCount(){
+  int totalRefCount = 0;
+  struct inode *ip;
+
+  acquire(&icache.lock);
+  for(ip = &icache.inode[0]; ip < &icache.inode[NINODE]; ip++)
+      totalRefCount+= ip->ref;
+  release(&icache.lock);
+  return totalRefCount;
+}
+
+int getFreeInodeCount(){
+  int freeInodeCount = 0;
+  struct inode *ip;
+
+  acquire(&icache.lock);
+  for(ip = &icache.inode[0]; ip < &icache.inode[NINODE]; ip++){
+    if(ip->flags == 0)
+      freeInodeCount++;
+  }
+  release(&icache.lock);
+  return freeInodeCount;
+}
+
+
 // Allocate a new inode with the given type on device dev.
 // A free inode has a type of zero.
 struct inode*

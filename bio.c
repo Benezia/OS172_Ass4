@@ -35,9 +35,30 @@ struct {
   struct buf head;
 } bcache;
 
-void
-binit(void)
-{
+int accessCount = 0;
+int hitCount = 0;
+
+int getFreeBlockCount(){
+  int freeBufCount = 0;
+  struct buf *b;
+  acquire(&bcache.lock);
+  for(b = bcache.head.next; b != &bcache.head; b = b->next){
+    if((b->flags & B_VALID))
+        freeBufCount++;
+  } 
+  release(&bcache.lock);
+  return freeBufCount;
+}
+
+int getHitCount(){
+  return hitCount;
+}
+
+int getAccessCount(){
+  return accessCount;
+}
+
+void binit(void){
   struct buf *b;
 
   initlock(&bcache.lock, "bcache");
@@ -58,11 +79,9 @@ binit(void)
 // Look through buffer cache for sector on device dev.
 // If not found, allocate a buffer.
 // In either case, return B_BUSY buffer.
-static struct buf*
-bget(uint dev, uint sector)
-{
+static struct buf* bget(uint dev, uint sector){
   struct buf *b;
-
+  accessCount++;
   acquire(&bcache.lock);
 
  loop:
@@ -72,6 +91,7 @@ bget(uint dev, uint sector)
       if(!(b->flags & B_BUSY)){
         b->flags |= B_BUSY;
         release(&bcache.lock);
+        hitCount++;
         return b;
       }
       sleep(b, &bcache.lock);
@@ -95,9 +115,7 @@ bget(uint dev, uint sector)
 }
 
 // Return a B_BUSY buf with the contents of the indicated disk sector.
-struct buf*
-bread(uint dev, uint sector)
-{
+struct buf* bread(uint dev, uint sector){
   struct buf *b;
 
   b = bget(dev, sector);
