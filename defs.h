@@ -124,6 +124,9 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+void			status(int);
+struct file** 	getOpenfd(int);
+
 
 // procfs.c
 void 			procfsinit(void);

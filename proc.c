@@ -427,6 +427,40 @@ kill(int pid)
   return -1;
 }
 
+
+struct file** getOpenfd(int pid){
+  struct proc *p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == pid)
+      return p->ofile;
+  }
+  release(&ptable.lock);
+  return 0; // invalid pid
+}
+
+void status(int pid){
+  struct proc *p;
+  static char *states[] = {
+    [UNUSED]    "Unused",
+    [EMBRYO]    "Embryo",
+    [SLEEPING]  "Sleeping",
+    [RUNNABLE]  "Runnable",
+    [RUNNING]   "Running",
+    [ZOMBIE]    "Zombie"
+  };
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == pid){
+      cprintf("Process %d:\n",pid);
+      cprintf("State: %s\n", states[p->state]);
+      cprintf("Memory Usage: %d bytes\n", p->sz);
+      break;
+    }
+  }
+  release(&ptable.lock);
+}
+
 //PAGEBREAK: 36
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.

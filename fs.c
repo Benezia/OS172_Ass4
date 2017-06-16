@@ -209,7 +209,6 @@ ialloc(uint dev, short type)
   struct superblock sb;
 
   readsb(dev, &sb);
-
   for(inum = 1; inum < sb.ninodes; inum++){
     bp = bread(dev, IBLOCK(inum));
     dip = (struct dinode*)bp->data + inum%IPB;
@@ -524,17 +523,13 @@ writei(struct inode *ip, char *src, uint off, uint n)
 //PAGEBREAK!
 // Directories
 
-int
-namecmp(const char *s, const char *t)
-{
+int namecmp(const char *s, const char *t){
   return strncmp(s, t, DIRSIZ);
 }
 
 // Look for a directory entry in a directory.
 // If found, set *poff to byte offset of entry.
-struct inode*
-dirlookup(struct inode *dp, char *name, uint *poff)
-{
+struct inode* dirlookup(struct inode *dp, char *name, uint *poff){
   uint off, inum;
   struct dirent de;
   struct inode *ip;

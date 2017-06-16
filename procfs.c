@@ -28,6 +28,33 @@ void inodestat(){
 	//TODO: Change cprintf to a char* string
 }
 
+void fdinfo(int pid, int fd){
+  static char *fileTypes[] = {
+    [FD_NONE]   "None",
+    [FD_PIPE]   "Pipe",
+    [FD_INODE]  "Inode",
+  };
+
+  struct file **ofile = getOpenfd(pid);
+  if (ofile == 0)
+  	return;
+
+  struct file *f = ofile[fd];
+  if (f == 0)
+    return;
+
+  cprintf("Proc %d fd %d info: \n",pid, fd);
+  cprintf("Type: %s\n", fileTypes[f->type]);
+  cprintf("Position: %d\n", f->off);
+  cprintf("Flags: ");
+  if (f->readable)
+    cprintf("R");
+  if (f->writable)
+    cprintf("W");
+  cprintf("\n");
+  cprintf("Inum: %d\n", f->ip->inum);
+}
+
 int procfsisdir(struct inode *ip) {
 	return (ip->type == T_DEV && ip->major == PROCFS) || ip->type == T_DIR;
 }
@@ -52,7 +79,7 @@ int procfsread(struct inode *ip, char *dst, int off, int n) {
 }
 
 int procfswrite(struct inode *ip, char *buf, int n) {
-	panic("Write in a read only system");
+	panic("Write invoked in a read only system");
   return 0;
 }
 
@@ -65,8 +92,17 @@ void procfsinit(void) {
 
 /*
 IDEA OF IMPLEMENTATION:
-Reserve node #51 for blockstat
-Reserve node #52 for inodestat
+Reserve inode #1 for blockstat file
+Reserve inode #2 for inodestat file
 
+Reserve inode #(pid*100) for pid folder (max num: NPROC*100 = 6400)
+Reserve inode #(pid*100+1) for fdinfo folder
+Reserve inode #(pid*100+2) for status file
+Reserve inode #(pid*100+10+fd) for each open fd (max num: pid*100+10+NOFILE = pid*100+26)
 
+Working with cwd:
+When procfsread is invoked on pid folder, return following dirent (name, inum) list:
+- "cwd", proc->cwd->inum
+- "fdinfo", pid*100+1
+- "status", pid*100+2
 */
