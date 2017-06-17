@@ -465,7 +465,6 @@ readi(struct inode *ip, char *dst, uint off, uint n)
 {
   uint tot, m;
   struct buf *bp;
-
   if(ip->type == T_DEV){
     if(ip->major < 0 || ip->major >= NDEV || !devsw[ip->major].read)
       return -1;
@@ -533,7 +532,7 @@ struct inode* dirlookup(struct inode *dp, char *name, uint *poff){
   uint off, inum;
   struct dirent de;
   struct inode *ip;
-
+  //cprintf("dirlookup name: %s, in inum: %d, dev: %d\n", name, dp->inum, dp->dev);
   if(dp->type != T_DIR && !IS_DEV_DIR(dp))
     panic("dirlookup not DIR");
 

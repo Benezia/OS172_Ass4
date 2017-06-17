@@ -42,5 +42,6 @@ extern struct devsw devsw[];
 
 #define IS_DEV_DIR(ip) (ip->type == T_DEV && devsw[ip->major].isdir && devsw[ip->major].isdir(ip))
 
+
 //PAGEBREAK!
 // Blank page.

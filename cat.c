@@ -8,7 +8,6 @@ void
 cat(int fd)
 {
   int n;
-
   while((n = read(fd, buf, sizeof(buf))) > 0)
     write(1, buf, n);
   if(n < 0){

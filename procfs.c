@@ -11,21 +11,63 @@
 #include "proc.h"
 #include "x86.h"
 #include "buf.h"
+#define min(a, b) ((a) < (b) ? (a) : (b))
 
 
-void blockstat(){
-	cprintf("Free blocks: %d\n", getFreeBlockCount());
-	cprintf("Total blocks: %d\n", NBUF);
-	cprintf("Hit ratio: %d/%d\n", getHitCount(), getAccessCount());
+typedef int (*procfs_func)(char*);
+
+void itoa(char *s, int n){
+	int i = 0;
+	int len = 0;
+	while(n != 0){
+		s[len] = n % 10 + '0';
+		n = n / 10; 
+		len++;
+	}
+	for(i = 0; i < len/2; i++){
+		char tmp = s[i];
+		s[i] = s[len - 1 - i];
+		s[len - 1 - i] = tmp;
+	}
+}
+
+
+int blockstat(char *ansBuf){
+	int sz = 0;
+	char numContainer[4] = {0};
+	memmove(ansBuf + sz, "Free blocks: ",strlen("Free blocks: "));
+	sz += strlen("Free blocks: ");
+	itoa(numContainer, getFreeBlockCount());
+	memmove(ansBuf + sz, numContainer,strlen(numContainer));
+	sz += strlen(numContainer);
+	memmove(ansBuf + sz, "\n",1);
+	sz += 1;
+	return sz;
+	//cprintf("Free blocks: %d\n", getFreeBlockCount());
+	//cprintf("Total blocks: %d\n", NBUF);
+	//cprintf("Hit ratio: %d/%d\n", getHitCount(), getAccessCount());
 	//TODO: Change cprintf to a char* string
 }
 
+int fillProcDirents(char *ansBuf){
+	struct dirent blockstat;
+	blockstat.inum = 201;
+	memmove(&blockstat.name, "blockstat\0", strlen("blockstat")+1);
+	memmove(ansBuf, (void*)&blockstat, sizeof(blockstat));
+	return sizeof(blockstat);
+}
+void fillPIDDirents(char *ansBuf){
+
+}
+void fillfdInfoDirents(char *ansBuf){
+
+}
 void inodestat(){
 	int freeInodeCount = getFreeInodeCount();
 	cprintf("Free inodes: %d\n", freeInodeCount);
 	cprintf("Valid inodes: %d\n", NINODE);
 	cprintf("Refs per inode: %d\n", getTotalRefCount()/(NINODE-freeInodeCount));
-	//TODO: Change cprintf to a char* string
+	//TODO: Change cprintf to a char* string and represent refs as float
 }
 
 void fdinfo(int pid, int fd){
@@ -55,27 +97,51 @@ void fdinfo(int pid, int fd){
   cprintf("Inum: %d\n", f->ip->inum);
 }
 
+procfs_func map(struct inode *ip){
+	if (ip->inum < 200){ //inode from disk, must be the /proc inode
+		//cprintf("map proc dirents\n");
+		return &fillProcDirents;
+	}
+	if (ip->inum == 201){
+		//cprintf("map file blockstat\n");
+		return &blockstat;
+	}
+	ip->type = 0;
+	cprintf("map failed\n");
+	return 0;
+	//TODO
+}
+
+
 int procfsisdir(struct inode *ip) {
-	return (ip->type == T_DEV && ip->major == PROCFS) || ip->type == T_DIR;
+	if (!(ip->type == T_DEV) || !(ip->major == PROCFS))
+		return 0;
+	int inum = ip->inum;
+	if (inum == 201 || inum == 202)
+		return 0; //blockstat and inodestat are files
+	return (inum < 200 || inum % 100 == 0 || inum % 100 == 1);
 }
 
 void procfsiread(struct inode* dp, struct inode *ip) {
-	//called from dirlookup.
-	//ip = A recycled inode returned in dirlookup (from iget)
-	ip->flags |= I_VALID; //prevents ilock (fs.c) from updating this inode
-	//ip->type = T_DEV OR T_FILE;
-
-	cprintf("iread\n");
+	//cprintf("iread inum: %d\n", ip->inum);
+	ip->flags |= I_VALID; 
+	ip->major = 2;
+	ip->type = T_DEV;
 }
 
 int procfsread(struct inode *ip, char *dst, int off, int n) {
-	cprintf("procfs read\n");
+	char ansBuf[512];
+	int ansSize;
+	procfs_func f = map(ip);
+	ansSize = f(ansBuf);
+	memmove(dst, ansBuf+off, n);
+	//cprintf("procfs read: %d, %d\n", ip->inum, min(n, ansSize-off));
+	return min(n, ansSize-off);
 	//Called by using read syscall on the proc T_DEV fd.
 	//Copies n bytes of ip's data to 'dst', starting at 'off'.
 	//if ip is a directory: A list of dirents will be copied (used by ls.c for example).
 	//if ip is a file: The output string will be copied
 	
-  return 0;
 }
 
 int procfswrite(struct inode *ip, char *buf, int n) {
@@ -92,17 +158,17 @@ void procfsinit(void) {
 
 /*
 IDEA OF IMPLEMENTATION:
-Reserve inode #1 for blockstat file
-Reserve inode #2 for inodestat file
+Reserve inode #201 for blockstat file
+Reserve inode #202 for inodestat file
 
-Reserve inode #(pid*100) for pid folder (max num: NPROC*100 = 6400)
-Reserve inode #(pid*100+1) for fdinfo folder
-Reserve inode #(pid*100+2) for status file
-Reserve inode #(pid*100+10+fd) for each open fd (max num: pid*100+10+NOFILE = pid*100+26)
+Reserve inode #(200+pid*100) for pid folder (max num: NPROC*100 = 6600)
+Reserve inode #(200+pid*100+1) for fdinfo folder
+Reserve inode #(200+pid*100+2) for status file
+Reserve inode #(200+pid*100+10+fd) for each open fd (max num: 200+pid*100+10+NOFILE = pid*100+225)
 
 Working with cwd:
 When procfsread is invoked on pid folder, return following dirent (name, inum) list:
 - "cwd", proc->cwd->inum
-- "fdinfo", pid*100+1
-- "status", pid*100+2
+- "fdinfo", 200+pid*100+1
+- "status", 200+pid*100+2
 */
