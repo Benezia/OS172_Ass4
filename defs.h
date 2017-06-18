@@ -124,7 +124,7 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-void			status(int);
+int				status(char *);
 struct file** 	getOpenfd(int);
 void*           getCWDinode(int);
 int             getValidPIDs(int*);
@@ -133,6 +133,9 @@ int             getValidPIDs(int*);
 
 // procfs.c
 void 			procfsinit(void);
+void 			appendNumToBufEnd(char *, int);
+void 			appendToBufEnd(char *, char *);
+
 
 // swtch.S
 void            swtch(struct context**, struct context*);

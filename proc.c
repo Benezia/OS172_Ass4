@@ -430,16 +430,22 @@ kill(int pid)
 
 struct file** getOpenfd(int pid){
   struct proc *p;
+  struct file** ofile = 0;
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->pid == pid)
-      return p->ofile;
+    if(p->pid == pid){
+      ofile = p->ofile;
+      break;
+    }
   }
   release(&ptable.lock);
-  return 0; // invalid pid
+  return ofile; // invalid pid
 }
 
-void status(int pid){
+int status(char *ansBuf){
+  int pid = ansBuf[0];
+  ansBuf[0] = 0;
+
   struct proc *p;
   static char *states[] = {
     [UNUSED]    "Unused",
@@ -452,13 +458,18 @@ void status(int pid){
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->pid == pid){
-      cprintf("Process %d:\n",pid);
-      cprintf("State: %s\n", states[p->state]);
-      cprintf("Memory Usage: %d bytes\n", p->sz);
+      appendToBufEnd(ansBuf, "Process ");
+      appendNumToBufEnd(ansBuf, pid);
+      appendToBufEnd(ansBuf, ":\nState: ");
+      appendToBufEnd(ansBuf, states[p->state]);
+      appendToBufEnd(ansBuf, "\nMemory Usage: ");
+      appendNumToBufEnd(ansBuf, p->sz);
+      appendToBufEnd(ansBuf, " bytes\n");
       break;
     }
   }
   release(&ptable.lock);
+  return strlen(ansBuf);
 }
 
 void* getCWDinode(int pid){
