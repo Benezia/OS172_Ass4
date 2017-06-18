@@ -56,33 +56,46 @@ void appendDirentToBufEnd(char *buff, char * dirName, int inum, int dPlace){
 
 
 int fillProcDirents(char *ansBuf){
-	appendDirentToBufEnd(ansBuf,"blockstat", 201, 0);
-  appendDirentToBufEnd(ansBuf,"inodestat", 202, 1);
+	appendDirentToBufEnd(ansBuf,".", namei("/proc")->inum, 0);
+	appendDirentToBufEnd(ansBuf,"..", namei("")->inum, 1);
+	appendDirentToBufEnd(ansBuf,"blockstat", 201, 2);
+  appendDirentToBufEnd(ansBuf,"inodestat", 202, 3);
   int pids[NPROC];
   int initPIDs = getValidPIDs(pids);
   int i;
   char numContainer[2] = {0};
   for (i = 0; i<initPIDs; i++){
     itoa(numContainer, pids[i]);
-    appendDirentToBufEnd(ansBuf,numContainer, 200+pids[i]*100, i+2);
+    appendDirentToBufEnd(ansBuf,numContainer, 200+pids[i]*100, i+4);
   }
- 	return sizeof(struct dirent)*(i+2);
+ 	return sizeof(struct dirent)*(i+4);
 }
 
 int fillPIDDirents(char *ansBuf){
 	short pid = ansBuf[0];
-  appendDirentToBufEnd(ansBuf,"fdinfo", 201 + pid*100, 0);
-  appendDirentToBufEnd(ansBuf,"status", 202 + pid*100, 1);
+  char dirPath[9] = {0};
+  appendToBufEnd(dirPath, "/proc/");
+	appendNumToBufEnd(dirPath, pid);
+	appendDirentToBufEnd(ansBuf,".", namei(dirPath)->inum, 0);
+	appendDirentToBufEnd(ansBuf,"..", namei("/proc")->inum, 1);
+  appendDirentToBufEnd(ansBuf,"fdinfo", 201 + pid*100, 2);
+  appendDirentToBufEnd(ansBuf,"status", 202 + pid*100, 3);
   struct inode *cwd = (struct inode*)getCWDinode(pid);
-  appendDirentToBufEnd(ansBuf,"cwd", cwd->inum, 2);
-	return sizeof(struct dirent)*3;
+  appendDirentToBufEnd(ansBuf,"cwd", cwd->inum, 4);
+	return sizeof(struct dirent)*5;
 }
 
 int fillfdInfoDirents(char *ansBuf){
 	short pid = ansBuf[0];
+  char dirPath[17] = {0};
+  appendToBufEnd(dirPath, "/proc/");
+	appendNumToBufEnd(dirPath, pid);
+	appendDirentToBufEnd(ansBuf,"..", namei(dirPath)->inum, 1);
+  appendToBufEnd(dirPath, "/fdinfo/");
+	appendDirentToBufEnd(ansBuf,".", namei(dirPath)->inum, 0);
 	struct file** fdList = getOpenfd(pid);
 	int i;
-	int j = 0;
+	int j = 2;
 	char numContainer[2] = {0};
 	for (i = 0; i < NOFILE; i++){
 		if (fdList[i]->ref > 0){
@@ -100,9 +113,10 @@ int blockstat(char *ansBuf){
 	appendToBufEnd(ansBuf,"\nTotal blocks: ");
   appendNumToBufEnd(ansBuf, NBUF);
 	appendToBufEnd(ansBuf,"\nHit ratio: ");
-  appendNumToBufEnd(ansBuf, getHitCount()/getAccessCount());
+  appendNumToBufEnd(ansBuf, getHitCount());
+	appendToBufEnd(ansBuf,"/");
+  appendNumToBufEnd(ansBuf, getAccessCount());
   appendToBufEnd(ansBuf,"\n");
-  //Implement as float??
 	return strlen(ansBuf);
 }
 
@@ -113,9 +127,10 @@ int inodestat(char *ansBuf){
   appendToBufEnd(ansBuf, "\nValid inodes: ");
   appendNumToBufEnd(ansBuf, NINODE);
   appendToBufEnd(ansBuf, "\nRefs per inode: ");
-  appendNumToBufEnd(ansBuf, getTotalRefCount()/(NINODE-freeInodeCount));
+  appendNumToBufEnd(ansBuf, getTotalRefCount());
+  appendToBufEnd(ansBuf,"/");
+  appendNumToBufEnd(ansBuf, NINODE-freeInodeCount);
   appendToBufEnd(ansBuf,"\n");
-	//TODO: Represent refs as float
   return strlen(ansBuf);
 }
 
@@ -155,42 +170,30 @@ int fdinfo(char *ansBuf){
 		appendToBufEnd(ansBuf, "W");
 	appendToBufEnd(ansBuf, "\nInum: ");
   appendNumToBufEnd(ansBuf, f->ip->inum);
+	appendToBufEnd(ansBuf, "\nRef count: ");
+  appendNumToBufEnd(ansBuf, f->ip->ref);
 	appendToBufEnd(ansBuf, "\n");
 	return strlen(ansBuf);
-  // cprintf("Proc %d fd %d info: \n",pid, fd);
-  // cprintf("Type: %s\n", fileTypes[f->type]);
-  // cprintf("Position: %d\n", f->off);
-  // cprintf("Flags: ");
-  // if (f->readable)
-  //   cprintf("R");
-  // if (f->writable)
-  //   cprintf("W");
-  // cprintf("\n");
-  // cprintf("Inum: %d\n", f->ip->inum);
 }
 
 procfs_func map(struct inode *ip){
-	if (ip->inum < 200) //inode from disk, must be the /proc inode
+	if (ip->inum < 200) 							// proc folder
 		return &fillProcDirents;
-	
-	if (ip->inum == 201)
+	if (ip->inum == 201)							// blockstat file
 		return &blockstat;
-  if (ip->inum == 202)
+  if (ip->inum == 202)							// inodestat file
 		return &inodestat;
-	if (ip->inum % 100 == 0){
-		return &fillPIDDirents;
-	}
-	if (ip->inum % 100 == 1){
-		return &fillfdInfoDirents;
-	}
-	if (ip->inum % 100 == 2){
-		return &status;
-	}
+	if (ip->inum % 100 == 0)
+		return &fillPIDDirents;					// pid folder
+	if (ip->inum % 100 == 1)
+		return &fillfdInfoDirents;			// fd foler
+	if (ip->inum % 100 == 2)
+		return &status;									// status file
 	int fd = (ip->inum % 100) - 10;
 	if (fd >= 0 && fd <= NOFILE)
-		return &fdinfo; 
+		return &fdinfo; 								// fdinfo file
 	
-	cprintf("map failed\n");
+	cprintf("Invalid inum\n");
 	return 0;
 }
 
@@ -205,7 +208,6 @@ int procfsisdir(struct inode *ip) {
 }
 
 void procfsiread(struct inode* dp, struct inode *ip) {
-	//cprintf("iread inum: %d\n", ip->inum);
 	ip->flags |= I_VALID; 
 	ip->major = 2;
 	ip->type = T_DEV;
@@ -223,16 +225,9 @@ int procfsread(struct inode *ip, char *dst, int off, int n) {
 		if (midInum >= 10)
 			ansBuf[1] = midInum-10;
 	}
-
 	ansSize = f(ansBuf);
 	memmove(dst, ansBuf+off, n);
-	//cprintf("procfs read: %d, %d\n", ip->inum, min(n, ansSize-off));
 	return min(n, ansSize-off);
-	//Called by using read syscall on the proc T_DEV fd.
-	//Copies n bytes of ip's data to 'dst', starting at 'off'.
-	//if ip is a directory: A list of dirents will be copied (used by ls.c for example).
-	//if ip is a file: The output string will be copied
-	
 }
 
 int procfswrite(struct inode *ip, char *buf, int n) {
