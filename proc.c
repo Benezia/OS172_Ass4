@@ -461,6 +461,34 @@ void status(int pid){
   release(&ptable.lock);
 }
 
+void* getCWDinode(int pid){
+  struct proc *p;
+  void* ans = 0;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == pid){
+      ans = p->cwd;
+      break;
+    }
+  }
+  release(&ptable.lock);
+  return ans;
+}
+
+int getValidPIDs(int* arr){
+  struct proc *p;
+  int pos = 0;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if (p->state == RUNNING || p->state == RUNNABLE || p->state == SLEEPING){
+        arr[pos] = p->pid;
+        pos++;
+      }
+  }
+  release(&ptable.lock);
+  return pos;
+}
+
 //PAGEBREAK: 36
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.

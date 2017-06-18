@@ -126,6 +126,9 @@ void            wakeup(void*);
 void            yield(void);
 void			status(int);
 struct file** 	getOpenfd(int);
+void*           getCWDinode(int);
+int             getValidPIDs(int*);
+
 
 
 // procfs.c

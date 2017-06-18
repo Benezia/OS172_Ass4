@@ -19,6 +19,10 @@ typedef int (*procfs_func)(char*);
 void itoa(char *s, int n){
 	int i = 0;
 	int len = 0;
+  if (n == 0){
+    s[0] = '0';
+    return;
+  }
 	while(n != 0){
 		s[len] = n % 10 + '0';
 		n = n / 10; 
@@ -31,43 +35,75 @@ void itoa(char *s, int n){
 	}
 }
 
+void appendToBufEnd(char *buff, char * text){
+  int textlen = strlen(text);
+  int sz = strlen(buff);
+  memmove(buff + sz, text,textlen);
+}
+
+void appendNumToBufEnd(char *buff, int num){
+  char numContainer[4] = {0};
+  itoa(numContainer, num);
+  appendToBufEnd(buff, numContainer);
+}
+
+void appendDirentToBufEnd(char *buff, char * dirName, int inum, int dPlace){
+  struct dirent dir;
+	dir.inum = inum;
+	memmove(&dir.name, dirName, strlen(dirName)+1);
+  memmove(buff + dPlace*sizeof(dir) , (void*)&dir, sizeof(dir));
+}
+
 
 int blockstat(char *ansBuf){
-	int sz = 0;
-	char numContainer[4] = {0};
-	memmove(ansBuf + sz, "Free blocks: ",strlen("Free blocks: "));
-	sz += strlen("Free blocks: ");
-	itoa(numContainer, getFreeBlockCount());
-	memmove(ansBuf + sz, numContainer,strlen(numContainer));
-	sz += strlen(numContainer);
-	memmove(ansBuf + sz, "\n",1);
-	sz += 1;
-	return sz;
-	//cprintf("Free blocks: %d\n", getFreeBlockCount());
-	//cprintf("Total blocks: %d\n", NBUF);
-	//cprintf("Hit ratio: %d/%d\n", getHitCount(), getAccessCount());
-	//TODO: Change cprintf to a char* string
+  appendToBufEnd(ansBuf, "Free blocks: ");
+	appendNumToBufEnd(ansBuf, getFreeBlockCount());
+	appendToBufEnd(ansBuf,"\nTotal blocks: ");
+  appendNumToBufEnd(ansBuf, NBUF);
+	appendToBufEnd(ansBuf,"\nHit ratio: ");
+  appendNumToBufEnd(ansBuf, getHitCount()/getAccessCount());
+  appendToBufEnd(ansBuf,"\n");
+  //Implement as float??
+	return strlen(ansBuf);
 }
 
 int fillProcDirents(char *ansBuf){
-	struct dirent blockstat;
-	blockstat.inum = 201;
-	memmove(&blockstat.name, "blockstat\0", strlen("blockstat")+1);
-	memmove(ansBuf, (void*)&blockstat, sizeof(blockstat));
-	return sizeof(blockstat);
+	appendDirentToBufEnd(ansBuf,"blockstat", 201, 0);
+  appendDirentToBufEnd(ansBuf,"inodestat", 202, 1);
+  int pids[NPROC];
+  int initPIDs = getValidPIDs(pids);
+  int i;
+  char numContainer[2] = {0};
+  for (i = 0; i<initPIDs; i++){
+    itoa(numContainer, pids[i]);
+    appendDirentToBufEnd(ansBuf,numContainer, 200+pids[i]*100, i+2);
+  }
+  
+  //TODO: add pid dirents
+	return sizeof(struct dirent)*(i+2);
 }
-void fillPIDDirents(char *ansBuf){
+int fillPIDDirents(char *ansBuf, int pid){
+  appendDirentToBufEnd(ansBuf,"fdinfo", 201 + pid*100, 0);
+  appendDirentToBufEnd(ansBuf,"status", 202, 1);
+	return sizeof(struct dirent)*3;
+  //appendDirentToBufEnd(ansBuf,"cwd", , 2);
 
 }
+
 void fillfdInfoDirents(char *ansBuf){
 
 }
-void inodestat(){
+int inodestat(char *ansBuf){
 	int freeInodeCount = getFreeInodeCount();
-	cprintf("Free inodes: %d\n", freeInodeCount);
-	cprintf("Valid inodes: %d\n", NINODE);
-	cprintf("Refs per inode: %d\n", getTotalRefCount()/(NINODE-freeInodeCount));
-	//TODO: Change cprintf to a char* string and represent refs as float
+	appendToBufEnd(ansBuf, "Free inodes: ");
+  appendNumToBufEnd(ansBuf, freeInodeCount);
+  appendToBufEnd(ansBuf, "\nValid inodes: ");
+  appendNumToBufEnd(ansBuf, NINODE);
+  appendToBufEnd(ansBuf, "\nRefs per inode: ");
+  appendNumToBufEnd(ansBuf, getTotalRefCount()/(NINODE-freeInodeCount));
+  appendToBufEnd(ansBuf,"\n");
+	//TODO: Represent refs as float
+  return strlen(ansBuf);
 }
 
 void fdinfo(int pid, int fd){
@@ -98,18 +134,17 @@ void fdinfo(int pid, int fd){
 }
 
 procfs_func map(struct inode *ip){
-	if (ip->inum < 200){ //inode from disk, must be the /proc inode
-		//cprintf("map proc dirents\n");
+	if (ip->inum < 200) //inode from disk, must be the /proc inode
 		return &fillProcDirents;
-	}
-	if (ip->inum == 201){
-		//cprintf("map file blockstat\n");
+	
+	if (ip->inum == 201)
 		return &blockstat;
-	}
-	ip->type = 0;
+	
+  if (ip->inum == 202)
+		return &inodestat;
+	
 	cprintf("map failed\n");
 	return 0;
-	//TODO
 }
 
 
@@ -130,7 +165,7 @@ void procfsiread(struct inode* dp, struct inode *ip) {
 }
 
 int procfsread(struct inode *ip, char *dst, int off, int n) {
-	char ansBuf[512];
+	char ansBuf[512] = {0};
 	int ansSize;
 	procfs_func f = map(ip);
 	ansSize = f(ansBuf);
