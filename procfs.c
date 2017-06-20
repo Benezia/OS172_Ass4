@@ -15,6 +15,7 @@
 
 
 typedef int (*procfs_func)(char*);
+int ninodes = 0;
 
 void itoa(char *s, int n){
 	int i = 0;
@@ -58,8 +59,8 @@ void appendDirentToBufEnd(char *buff, char * dirName, int inum, int dPlace){
 int fillProcDirents(char *ansBuf){
 	appendDirentToBufEnd(ansBuf,".", namei("/proc")->inum, 0);
 	appendDirentToBufEnd(ansBuf,"..", namei("")->inum, 1);
-	appendDirentToBufEnd(ansBuf,"blockstat", 201, 2);
-  appendDirentToBufEnd(ansBuf,"inodestat", 202, 3);
+	appendDirentToBufEnd(ansBuf,"blockstat", ninodes+1, 2);
+  appendDirentToBufEnd(ansBuf,"inodestat", ninodes+2, 3);
   int pids[NPROC] = {0};
   getValidSlots(pids);
   int i, j = 4;
@@ -67,7 +68,7 @@ int fillProcDirents(char *ansBuf){
   for (i = 0; i<NPROC; i++){
   	if (pids[i] != 0){
 	    itoa(numContainer, pids[i]);
-	    appendDirentToBufEnd(ansBuf,numContainer, 200+(i+1)*100, j);
+	    appendDirentToBufEnd(ansBuf,numContainer, ninodes+(i+1)*100, j);
 	    j++;
   	}
   }
@@ -82,8 +83,8 @@ int fillPIDDirents(char *ansBuf){
 	appendNumToBufEnd(dirPath, pid);
 	appendDirentToBufEnd(ansBuf,".", namei(dirPath)->inum, 0);
 	appendDirentToBufEnd(ansBuf,"..", namei("/proc")->inum, 1);
-  appendDirentToBufEnd(ansBuf,"fdinfo", 201 + (slot+1)*100, 2);
-  appendDirentToBufEnd(ansBuf,"status", 202 + (slot+1)*100, 3);
+  appendDirentToBufEnd(ansBuf,"fdinfo", ninodes+1+(slot+1)*100, 2);
+  appendDirentToBufEnd(ansBuf,"status", ninodes+2+(slot+1)*100, 3);
   struct inode *cwd = (struct inode*)getCWDinode(pid);
   appendDirentToBufEnd(ansBuf,"cwd", cwd->inum, 4);
 	return sizeof(struct dirent)*5;
@@ -105,7 +106,7 @@ int fillfdInfoDirents(char *ansBuf){
 	for (i = 0; i < NOFILE; i++){
 		if (fdList[i] > 0){
 	    itoa(numContainer, i);
-		  appendDirentToBufEnd(ansBuf,numContainer, 210+(slot+1)*100+i , j);
+		  appendDirentToBufEnd(ansBuf,numContainer, ninodes+10+(slot+1)*100+i , j);
 		  j++;
 		}
 	}
@@ -179,11 +180,11 @@ int fdinfo(char *ansBuf){
 }
 
 procfs_func map(struct inode *ip){
-	if (ip->inum < 200) 							// proc folder
+	if (ip->inum < ninodes) 							// proc folder
 		return &fillProcDirents;
-	if (ip->inum == 201)							// blockstat file
+	if (ip->inum == (ninodes+1))							// blockstat file
 		return &blockstat;
-  if (ip->inum == 202)							// inodestat file
+  if (ip->inum == (ninodes+2))						// inodestat file
 		return &inodestat;
 	if (ip->inum % 100 == 0)
 		return &fillPIDDirents;					// pid folder
@@ -204,9 +205,9 @@ int procfsisdir(struct inode *ip) {
 	if (!(ip->type == T_DEV) || !(ip->major == PROCFS))
 		return 0;
 	int inum = ip->inum;
-	if (inum == 201 || inum == 202)
+	if (inum == (ninodes+1) || inum == (ninodes+2))
 		return 0; //blockstat and inodestat are files
-	return (inum < 200 || inum % 100 == 0 || inum % 100 == 1);
+	return (inum < ninodes || inum % 100 == 0 || inum % 100 == 1);
 }
 
 void procfsiread(struct inode* dp, struct inode *ip) {
@@ -216,12 +217,17 @@ void procfsiread(struct inode* dp, struct inode *ip) {
 }
 
 int procfsread(struct inode *ip, char *dst, int off, int n) {
+	if (ninodes == 0){
+		struct superblock sb;
+  	readsb(ip->dev, &sb);
+  	ninodes = sb.ninodes;
+  }
 	char ansBuf[512] = {0};
 	int ansSize;
 	procfs_func f = map(ip);
 	short slot = 0;
-	if (ip->inum >= 300){
-		slot = (ip->inum-200)/100 - 1;
+	if (ip->inum >= ninodes+100){
+		slot = (ip->inum-ninodes)/100 - 1;
 		ansBuf[0] = slot;
 		short midInum = ip->inum % 100;
 		if (midInum >= 10)
