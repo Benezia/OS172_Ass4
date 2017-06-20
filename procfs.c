@@ -60,47 +60,52 @@ int fillProcDirents(char *ansBuf){
 	appendDirentToBufEnd(ansBuf,"..", namei("")->inum, 1);
 	appendDirentToBufEnd(ansBuf,"blockstat", 201, 2);
   appendDirentToBufEnd(ansBuf,"inodestat", 202, 3);
-  int pids[NPROC];
-  int initPIDs = getValidPIDs(pids);
-  int i;
+  int pids[NPROC] = {0};
+  getValidSlots(pids);
+  int i, j = 4;
   char numContainer[3] = {0};
-  for (i = 0; i<initPIDs; i++){
-    itoa(numContainer, pids[i]);
-    appendDirentToBufEnd(ansBuf,numContainer, 200+pids[i]*100, i+4);
+  for (i = 0; i<NPROC; i++){
+  	if (pids[i] != 0){
+	    itoa(numContainer, pids[i]);
+	    appendDirentToBufEnd(ansBuf,numContainer, 200+(i+1)*100, j);
+	    j++;
+  	}
   }
- 	return sizeof(struct dirent)*(i+4);
+ 	return sizeof(struct dirent)*j;
 }
 
 int fillPIDDirents(char *ansBuf){
-	short pid = ansBuf[0];
+	short slot = ansBuf[0];
+	int pid = getSlotPID(slot);
   char dirPath[9] = {0};
   appendToBufEnd(dirPath, "/proc/");
 	appendNumToBufEnd(dirPath, pid);
 	appendDirentToBufEnd(ansBuf,".", namei(dirPath)->inum, 0);
 	appendDirentToBufEnd(ansBuf,"..", namei("/proc")->inum, 1);
-  appendDirentToBufEnd(ansBuf,"fdinfo", 201 + pid*100, 2);
-  appendDirentToBufEnd(ansBuf,"status", 202 + pid*100, 3);
+  appendDirentToBufEnd(ansBuf,"fdinfo", 201 + (slot+1)*100, 2);
+  appendDirentToBufEnd(ansBuf,"status", 202 + (slot+1)*100, 3);
   struct inode *cwd = (struct inode*)getCWDinode(pid);
   appendDirentToBufEnd(ansBuf,"cwd", cwd->inum, 4);
 	return sizeof(struct dirent)*5;
 }
 
 int fillfdInfoDirents(char *ansBuf){
-	short pid = ansBuf[0];
+	short slot = ansBuf[0];
+	int pid = getSlotPID(slot);
   char dirPath[17] = {0};
   appendToBufEnd(dirPath, "/proc/");
 	appendNumToBufEnd(dirPath, pid);
 	appendDirentToBufEnd(ansBuf,"..", namei(dirPath)->inum, 1);
   appendToBufEnd(dirPath, "/fdinfo/");
 	appendDirentToBufEnd(ansBuf,".", namei(dirPath)->inum, 0);
-	struct file** fdList = getOpenfd(pid);
+	struct file** fdList = getOpenfd(slot);
 	int i;
 	int j = 2;
 	char numContainer[3] = {0};
 	for (i = 0; i < NOFILE; i++){
 		if (fdList[i] > 0){
 	    itoa(numContainer, i);
-		  appendDirentToBufEnd(ansBuf,numContainer, 210+pid*100+i , j);
+		  appendDirentToBufEnd(ansBuf,numContainer, 210+(slot+1)*100+i , j);
 		  j++;
 		}
 	}
@@ -136,7 +141,7 @@ int inodestat(char *ansBuf){
 
 
 int fdinfo(char *ansBuf){
-  int pid = ansBuf[0];
+  short slot = ansBuf[0];
   ansBuf[0] = 0;
   int fd = ansBuf[1];
   ansBuf[1] = 0;
@@ -147,7 +152,7 @@ int fdinfo(char *ansBuf){
     [FD_INODE]  "inode",
   };
 
-  struct file **ofile = getOpenfd(pid);
+  struct file **ofile = getOpenfd(slot);
   if (ofile == 0)
   	return 0;
 
@@ -214,10 +219,10 @@ int procfsread(struct inode *ip, char *dst, int off, int n) {
 	char ansBuf[512] = {0};
 	int ansSize;
 	procfs_func f = map(ip);
-	short pid = 0;
+	short slot = 0;
 	if (ip->inum >= 300){
-		pid = (ip->inum-200)/100;
-		ansBuf[0] = pid;
+		slot = (ip->inum-200)/100 - 1;
+		ansBuf[0] = slot;
 		short midInum = ip->inum % 100;
 		if (midInum >= 10)
 			ansBuf[1] = midInum-10;
@@ -244,10 +249,10 @@ IDEA OF IMPLEMENTATION:
 Reserve inode #201 for blockstat file
 Reserve inode #202 for inodestat file
 
-Reserve inode #(200+pid*100) for pid folder (max num: NPROC*100 = 6600)
-Reserve inode #(200+pid*100+1) for fdinfo folder
-Reserve inode #(200+pid*100+2) for status file
-Reserve inode #(200+pid*100+10+fd) for each open fd (max num: 200+pid*100+10+NOFILE = pid*100+225)
+Reserve inode #(300+slot*100) for pid folder (max num: NPROC*100 = 6600)
+Reserve inode #(300+slot*100+1) for fdinfo folder
+Reserve inode #(300+slot*100+2) for status file
+Reserve inode #(300+slot*100+10+fd) for each open fd (max num: 300+slot*100+10+NOFILE = slot*100+225)
 
 Working with cwd:
 When procfsread is invoked on pid folder, return following dirent (name, inum) list:

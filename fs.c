@@ -190,7 +190,7 @@ int getFreeInodeCount(){
 
   acquire(&icache.lock);
   for(ip = &icache.inode[0]; ip < &icache.inode[NINODE]; ip++){
-    if(ip->flags == 0)
+    if(ip->ref == 0)
       freeInodeCount++;
   }
   release(&icache.lock);

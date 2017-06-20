@@ -127,7 +127,8 @@ void            yield(void);
 int				status(char *);
 struct file** 	getOpenfd(int);
 void*           getCWDinode(int);
-int             getValidPIDs(int*);
+void            getValidSlots(int*);
+int 			getSlotPID(int);
 
 
 

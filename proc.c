@@ -428,22 +428,19 @@ kill(int pid)
 }
 
 
-struct file** getOpenfd(int pid){
+struct file** getOpenfd(int slot){
   struct proc *p;
   struct file** ofile = 0;
   acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->pid == pid){
-      ofile = p->ofile;
-      break;
-    }
-  }
+  p = ptable.proc;
+  p+=slot;
+  ofile = p->ofile;
   release(&ptable.lock);
   return ofile; // invalid pid
 }
 
 int status(char *ansBuf){
-  int pid = ansBuf[0];
+  int slot = ansBuf[0];
   ansBuf[0] = 0;
 
   struct proc *p;
@@ -456,17 +453,16 @@ int status(char *ansBuf){
     [ZOMBIE]    "Zombie"
   };
   acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->pid == pid){
-      appendToBufEnd(ansBuf, "Process ");
-      appendNumToBufEnd(ansBuf, pid);
-      appendToBufEnd(ansBuf, ":\nState: ");
-      appendToBufEnd(ansBuf, states[p->state]);
-      appendToBufEnd(ansBuf, "\nMemory Usage: ");
-      appendNumToBufEnd(ansBuf, p->sz);
-      appendToBufEnd(ansBuf, " bytes\n");
-      break;
-    }
+  p = ptable.proc;
+  p+=slot;
+  if(p->pid != 0){
+    appendToBufEnd(ansBuf, "Process ");
+    appendNumToBufEnd(ansBuf, p->pid);
+    appendToBufEnd(ansBuf, ":\nState: ");
+    appendToBufEnd(ansBuf, states[p->state]);
+    appendToBufEnd(ansBuf, "\nMemory Usage: ");
+    appendNumToBufEnd(ansBuf, p->sz);
+    appendToBufEnd(ansBuf, " bytes\n");
   }
   release(&ptable.lock);
   return strlen(ansBuf);
@@ -486,19 +482,28 @@ void* getCWDinode(int pid){
   return ans;
 }
 
-int getValidPIDs(int* arr){
+
+void getValidSlots(int* arr){
   struct proc *p;
   int pos = 0;
   acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if (p->state == RUNNING || p->state == RUNNABLE || p->state == SLEEPING){
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++, pos++){
+      if (p->state == RUNNING || p->state == RUNNABLE || p->state == SLEEPING)
         arr[pos] = p->pid;
-        pos++;
-      }
   }
   release(&ptable.lock);
-  return pos;
 }
+
+int getSlotPID(int slot){
+  struct proc *p;
+  acquire(&ptable.lock);
+  p = ptable.proc;
+  p+=slot;
+  release(&ptable.lock);
+  return p->pid;
+}
+
+
 
 //PAGEBREAK: 36
 // Print a process listing to console.  For debugging.
