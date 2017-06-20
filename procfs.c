@@ -67,6 +67,9 @@ int fillProcDirents(char *ansBuf){
   char numContainer[3] = {0};
   for (i = 0; i<NPROC; i++){
   	if (pids[i] != 0){
+  		numContainer[0] = 0;
+  		numContainer[1] = 0;
+  		numContainer[2] = 0;
 	    itoa(numContainer, pids[i]);
 	    appendDirentToBufEnd(ansBuf,numContainer, ninodes+(i+1)*100, j);
 	    j++;
@@ -180,11 +183,11 @@ int fdinfo(char *ansBuf){
 }
 
 procfs_func map(struct inode *ip){
-	if (ip->inum < ninodes) 							// proc folder
+	if (ip->inum < ninodes) 					// proc folder
 		return &fillProcDirents;
-	if (ip->inum == (ninodes+1))							// blockstat file
+	if (ip->inum == (ninodes+1))			// blockstat file
 		return &blockstat;
-  if (ip->inum == (ninodes+2))						// inodestat file
+  if (ip->inum == (ninodes+2))			// inodestat file
 		return &inodestat;
 	if (ip->inum % 100 == 0)
 		return &fillPIDDirents;					// pid folder
@@ -202,6 +205,11 @@ procfs_func map(struct inode *ip){
 
 
 int procfsisdir(struct inode *ip) {
+	if (ninodes == 0){
+		struct superblock sb;
+  	readsb(ip->dev, &sb);
+  	ninodes = sb.ninodes;
+  }
 	if (!(ip->type == T_DEV) || !(ip->major == PROCFS))
 		return 0;
 	int inum = ip->inum;
@@ -217,11 +225,6 @@ void procfsiread(struct inode* dp, struct inode *ip) {
 }
 
 int procfsread(struct inode *ip, char *dst, int off, int n) {
-	if (ninodes == 0){
-		struct superblock sb;
-  	readsb(ip->dev, &sb);
-  	ninodes = sb.ninodes;
-  }
 	char ansBuf[512] = {0};
 	int ansSize;
 	procfs_func f = map(ip);
