@@ -63,7 +63,7 @@ int fillProcDirents(char *ansBuf){
   int pids[NPROC];
   int initPIDs = getValidPIDs(pids);
   int i;
-  char numContainer[2] = {0};
+  char numContainer[3] = {0};
   for (i = 0; i<initPIDs; i++){
     itoa(numContainer, pids[i]);
     appendDirentToBufEnd(ansBuf,numContainer, 200+pids[i]*100, i+4);
@@ -96,9 +96,9 @@ int fillfdInfoDirents(char *ansBuf){
 	struct file** fdList = getOpenfd(pid);
 	int i;
 	int j = 2;
-	char numContainer[2] = {0};
+	char numContainer[3] = {0};
 	for (i = 0; i < NOFILE; i++){
-		if (fdList[i]->ref > 0){
+		if (fdList[i] > 0){
 	    itoa(numContainer, i);
 		  appendDirentToBufEnd(ansBuf,numContainer, 210+pid*100+i , j);
 		  j++;
@@ -142,9 +142,9 @@ int fdinfo(char *ansBuf){
   ansBuf[1] = 0;
 
   static char *fileTypes[] = {
-    [FD_NONE]   "None",
-    [FD_PIPE]   "Pipe",
-    [FD_INODE]  "Inode",
+    [FD_NONE]   "none",
+    [FD_PIPE]   "pipe",
+    [FD_INODE]  "inode",
   };
 
   struct file **ofile = getOpenfd(pid);
@@ -155,23 +155,20 @@ int fdinfo(char *ansBuf){
   if (f == 0)
     return 0;
 
-	appendToBufEnd(ansBuf, "Proc ");
-  appendNumToBufEnd(ansBuf, pid);
-	appendToBufEnd(ansBuf, " fd ");
-  appendNumToBufEnd(ansBuf, fd);
-	appendToBufEnd(ansBuf, " info:\nType: ");
+
+	appendToBufEnd(ansBuf, "type\t");
 	appendToBufEnd(ansBuf, fileTypes[f->type]);
-	appendToBufEnd(ansBuf, "\nPosition: ");
+	appendToBufEnd(ansBuf, "\ninum\t");
+  appendNumToBufEnd(ansBuf, f->ip->inum);
+	appendToBufEnd(ansBuf, "\nref\t");
+  appendNumToBufEnd(ansBuf, f->ip->ref);
+	appendToBufEnd(ansBuf, "\npos\t");
   appendNumToBufEnd(ansBuf, f->off);
-	appendToBufEnd(ansBuf, "\nFlags: ");
+	appendToBufEnd(ansBuf, "\nflags\t");
   if (f->readable)
 		appendToBufEnd(ansBuf, "R");
   if (f->writable)
 		appendToBufEnd(ansBuf, "W");
-	appendToBufEnd(ansBuf, "\nInum: ");
-  appendNumToBufEnd(ansBuf, f->ip->inum);
-	appendToBufEnd(ansBuf, "\nRef count: ");
-  appendNumToBufEnd(ansBuf, f->ip->ref);
 	appendToBufEnd(ansBuf, "\n");
 	return strlen(ansBuf);
 }

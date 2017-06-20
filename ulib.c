@@ -33,6 +33,16 @@ strlen(char *s)
   return n;
 }
 
+int indexof(char *s, char c, int from){
+  char* p = s+from;
+  while (*p != c){
+    if (*p == 0)
+      return -1;
+    p++;
+  }
+  return p-s;
+}
+
 void*
 memset(void *dst, int c, uint n)
 {
