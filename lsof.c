@@ -3,42 +3,34 @@
 #include "user.h"
 #include "fs.h"
 
-void printfd(char * buf, char * path){
-	char tempBuf[10] = {0};
-	char type[6] = {0};
+//Puts the string between c1 to c2 from index 'from' from 'buf' to 'dst'
+int getContent(char * dst, char *buf, char c1, char c2, int from){
+	int i;
+  for (i=0; i<10; i++){
+  	dst[i] = 0; //clear buffer
+  }
+	int s = indexof(buf,c1,from);
+	int e = indexof(buf,c2,s+1);
+  memmove(dst, buf+s+1, e-s-1);
+  return e;
+}
 
-	int s = indexof(path,'/',0);
-	int e = indexof(path,'/',s+1);
-  memmove(tempBuf, path+s+1, e-s);
+void printfd(char * buf, char * path){
+	char tempBuf[10];
+	char type[6];
+
+  int e = getContent(tempBuf, path, '/', '/', 0);
   int pid = atoi(tempBuf);
 
-  int i;
-  for (i=0; i<10; i++){
-  	tempBuf[i] = 0; //clear buffer
-  }
-	s = indexof(path,'/',e+1);
-	e = strlen(path);
-  memmove(tempBuf, path+s+1, e-s);
+  e = getContent(tempBuf, path, '/', 0, e+1);
   int fd = atoi(tempBuf);
 
-	s = indexof(buf,'\t',0);
-	e = indexof(buf,'\n',0);
-  memmove(type, buf+s+1, e-s-1);
+  e = getContent(type, buf, '\t', '\n', 0);
 
- 	for (i=0; i<10; i++){
-  	tempBuf[i] = 0; //clear buffer
-  }
-	s = indexof(buf,'\t',e);
-	e = indexof(buf,'\n',s);
-  memmove(tempBuf, buf+s+1, e-s);
+  e = getContent(tempBuf, buf, '\t', '\n', e);
   int inum = atoi(tempBuf);
 
- 	for (i=0; i<10; i++){
-  	tempBuf[i] = 0; //clear buffer
-  }
-	s = indexof(buf,'\t',e);
-	e = indexof(buf,'\n',s);
-  memmove(tempBuf, buf+s+1, e-s);
+  getContent(tempBuf, buf, '\t', '\n', e);
   int refs = atoi(tempBuf);
 
   printf(1, "%d %d %d %d %s\n",pid, fd, refs, inum, type);
@@ -54,7 +46,6 @@ void openfd(char *path){
   }
   int n;
   if((n = read(fd, buf, sizeof(buf))) > 0)
-  	//write(1, buf, n);
     printfd(buf, path);
   if(n < 0)
     printf(2, "read error\n");
@@ -109,7 +100,6 @@ void lsof(char *path){
     if (isdir(de.name, de.inum)) //a dir of pid/fd
     	lsof(buf);
   }
-	
   close(fd);
 }
 
