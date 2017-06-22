@@ -225,6 +225,11 @@ void procfsiread(struct inode* dp, struct inode *ip) {
 }
 
 int procfsread(struct inode *ip, char *dst, int off, int n) {
+	if (ninodes == 0){
+		struct superblock sb;
+  	readsb(ip->dev, &sb);
+  	ninodes = sb.ninodes;
+  }
 	char ansBuf[1056] = {0}; //longest data is 66 dirents * 16 bytes
 	int ansSize;
 	procfs_func f = map(ip);
@@ -252,20 +257,3 @@ void procfsinit(void) {
   devsw[PROCFS].write = procfswrite;
   devsw[PROCFS].read = procfsread;
 }
-
-/*
-IDEA OF IMPLEMENTATION:
-Reserve inode #201 for blockstat file
-Reserve inode #202 for inodestat file
-
-Reserve inode #(300+slot*100) for pid folder (max num: NPROC*100 = 6600)
-Reserve inode #(300+slot*100+1) for fdinfo folder
-Reserve inode #(300+slot*100+2) for status file
-Reserve inode #(300+slot*100+10+fd) for each open fd (max num: 300+slot*100+10+NOFILE = slot*100+225)
-
-Working with cwd:
-When procfsread is invoked on pid folder, return following dirent (name, inum) list:
-- "cwd", proc->cwd->inum
-- "fdinfo", 200+pid*100+1
-- "status", 200+pid*100+2
-*/
