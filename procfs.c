@@ -225,7 +225,7 @@ void procfsiread(struct inode* dp, struct inode *ip) {
 }
 
 int procfsread(struct inode *ip, char *dst, int off, int n) {
-	char ansBuf[512] = {0};
+	char ansBuf[1056] = {0}; //longest data is 66 dirents * 16 bytes
 	int ansSize;
 	procfs_func f = map(ip);
 	short slot = 0;
