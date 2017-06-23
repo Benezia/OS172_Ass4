@@ -66,19 +66,12 @@ void lsof(char *path){
   char buf[512], *p;
   int fd;
   struct dirent de;
-  struct stat st;
-  //printf(1,"parent: %s\n",path);
 
   if((fd = open(path, 0)) < 0){
     printf(2, "lsof: cannot open %s\n", path);
     return;
   }
   
-  if(fstat(fd, &st) < 0){
-    printf(2, "lsof: cannot stat %s\n", path);
-    close(fd);
-    return;
-  }
   if(strlen(path) + 1 + DIRSIZ + 1 > sizeof buf)
     printf(1, "lsof: path too long\n");
   strcpy(buf, path);
@@ -89,12 +82,6 @@ void lsof(char *path){
       continue;
     memmove(p, de.name, DIRSIZ);
     p[DIRSIZ] = 0;
-    //printf(1,"\tpath: %s\n",buf);
-    if(stat(buf, &st) < 0){
-      printf(1, "lsof: cannot stat %s\n", buf);
-      continue;
-    }
-
     if (isfd(de.inum))
     	openfd(buf);
     if (isdir(de.name, de.inum)) //a dir of pid/fd

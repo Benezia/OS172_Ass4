@@ -532,7 +532,6 @@ struct inode* dirlookup(struct inode *dp, char *name, uint *poff){
   uint off, inum;
   struct dirent de;
   struct inode *ip;
-  //cprintf("dirlookup name: %s, in inum: %d, dev: %d\n", name, dp->inum, dp->dev);
   if(dp->type != T_DIR && !IS_DEV_DIR(dp))
     panic("dirlookup not DIR");
 
@@ -551,7 +550,6 @@ struct inode* dirlookup(struct inode *dp, char *name, uint *poff){
         *poff = off;
       inum = de.inum;
       ip = iget(dp->dev, inum);
-      //if dp->type == T_DEV, iget should return a new recycled inode
       if (!(ip->flags & I_VALID) && dp->type == T_DEV && devsw[dp->major].iread) {
         devsw[dp->major].iread(dp, ip);
       }
