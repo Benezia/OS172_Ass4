@@ -196,7 +196,18 @@ int getFreeInodeCount(){
   release(&icache.lock);
   return freeInodeCount;
 }
+int getValidInodeCount(){
+  int valid = 0;
+  struct inode *ip;
 
+  acquire(&icache.lock);
+  for(ip = &icache.inode[0]; ip < &icache.inode[NINODE]; ip++){
+    if(ip->flags & I_VALID)
+      valid++;
+  }
+  release(&icache.lock);
+  return valid;
+}
 
 // Allocate a new inode with the given type on device dev.
 // A free inode has a type of zero.

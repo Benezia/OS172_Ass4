@@ -134,7 +134,7 @@ int inodestat(char *ansBuf){
 	appendToBufEnd(ansBuf, "Free inodes: ");
   appendNumToBufEnd(ansBuf, freeInodeCount);
   appendToBufEnd(ansBuf, "\nValid inodes: ");
-  appendNumToBufEnd(ansBuf, NINODE);
+  appendNumToBufEnd(ansBuf, getValidInodeCount());
   appendToBufEnd(ansBuf, "\nRefs per inode: ");
   appendNumToBufEnd(ansBuf, getTotalRefCount());
   appendToBufEnd(ansBuf,"/");
@@ -220,7 +220,7 @@ int procfsisdir(struct inode *ip) {
 
 void procfsiread(struct inode* dp, struct inode *ip) {
 	ip->flags |= I_VALID; 
-	ip->major = 2;
+	ip->major = PROCFS;
 	ip->type = T_DEV;
 }
 

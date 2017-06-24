@@ -56,7 +56,7 @@ void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, char*, uint, uint);
 int  			getFreeInodeCount();
 int 			getTotalRefCount();
-
+int 			getValidInodeCount();
 
 // ide.c
 void            ideinit(void);
